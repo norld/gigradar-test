@@ -1,0 +1,336 @@
+openapi: 3.0.3
+info:
+  title: Vercel Fastify Webhook API
+  description: Serverless webhook infrastructure for Telegram AI Assistant Bot
+  version: 1.0.0
+  contact:
+    name: GigRadar Team
+
+servers:
+  - url: https://gigradar-test.vercel.app
+    description: Production (Vercel)
+  - url: http://localhost:3000
+    description: Local development
+
+paths:
+  /api/webhook:
+    post:
+      summary: Telegram webhook endpoint
+      description: |
+        Receives incoming webhook POST requests from Telegram Bot API.
+        Validates payload size, parses request body, and acknowledges receipt.
+
+        **Note**: This endpoint does not process the message content. It only
+        validates and acknowledges the webhook delivery. Message processing
+        will be implemented in a future feature.
+      operationId: receiveWebhook
+      tags:
+        - Webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookRequest'
+            examples:
+              textMessage:
+                summary: Text message from user
+                value:
+                  update_id: 123456789
+                  message:
+                    message_id: 1
+                    from:
+                      id: 987654321
+                      is_bot: false
+                      first_name: John
+                      username: johndoe
+                    chat:
+                      id: 987654321
+                      type: private
+                    date: 1705702400
+                    text: Hello, bot!
+              imageMessage:
+                summary: Image message with caption
+                value:
+                  update_id: 123456790
+                  message:
+                    message_id: 2
+                    from:
+                      id: 987654321
+                      is_bot: false
+                      first_name: John
+                    chat:
+                      id: 987654321
+                      type: private
+                    date: 1705702401
+                    photo:
+                      - file_id: AgACAgIAAxkBAAI...
+                        file_size: 1234
+                    caption: Check this out!
+      responses:
+        '200':
+          description: Webhook received successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Webhook received
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                malformedJson:
+                  summary: Malformed JSON
+                  value:
+                    error: Invalid JSON
+                    message: Request body contains invalid JSON
+                missingFields:
+                  summary: Missing required fields
+                  value:
+                    error: Validation failed
+                    message: Missing required field: update_id
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Payload too large
+                message: Request body exceeds 3MB limit
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: Internal server error
+                message: An unexpected error occurred
+
+  /api/health:
+    get:
+      summary: Health check endpoint
+      description: |
+        Returns the current health status of the service.
+        Used by monitoring systems, load balancers, and Vercel health checks.
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: healthy
+                timestamp: '2026-01-19T12:34:56.789Z'
+                uptime: 1234.567
+                version: 1.0.0
+                checks:
+                  server: healthy
+                  memory: healthy
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+              example:
+                status: unhealthy
+                timestamp: '2026-01-19T12:34:56.789Z'
+                uptime: 1234.567
+                checks:
+                  server: unhealthy
+
+components:
+  schemas:
+    WebhookRequest:
+      type: object
+      required:
+        - update_id
+      properties:
+        update_id:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Unique identifier for this update
+        message:
+          $ref: '#/components/schemas/TelegramMessage'
+        callback_query:
+          $ref: '#/components/schemas/TelegramCallbackQuery'
+        edited_message:
+          $ref: '#/components/schemas/TelegramMessage'
+        channel_post:
+          $ref: '#/components/schemas/TelegramMessage'
+        edited_channel_post:
+          $ref: '#/components/schemas/TelegramMessage'
+      description: |
+        At least one of message, callback_query, edited_message, channel_post,
+        or edited_channel_post must be present.
+
+    TelegramMessage:
+      type: object
+      required:
+        - message_id
+        - from
+        - chat
+        - date
+      properties:
+        message_id:
+          type: integer
+          minimum: 1
+        from:
+          $ref: '#/components/schemas/TelegramUser'
+        chat:
+          $ref: '#/components/schemas/TelegramChat'
+        date:
+          type: integer
+          format: int64
+          description: Unix timestamp
+        text:
+          type: string
+          description: Message text (for text messages)
+        photo:
+          type: array
+          items:
+            type: object
+            required:
+              - file_id
+            properties:
+              file_id:
+                type: string
+              file_size:
+                type: integer
+          description: Array of photo sizes (for image messages)
+        caption:
+          type: string
+          description: Caption for the media
+
+    TelegramUser:
+      type: object
+      required:
+        - id
+        - is_bot
+        - first_name
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Unique identifier for this user
+        is_bot:
+          type: boolean
+        first_name:
+          type: string
+        last_name:
+          type: string
+        username:
+          type: string
+
+    TelegramChat:
+      type: object
+      required:
+        - id
+        - type
+      properties:
+        id:
+          type: integer
+          minimum: 1
+          description: Unique chat identifier
+        type:
+          type: string
+          enum: [private, group, supergroup, channel]
+        title:
+          type: string
+          description: Chat title (for groups/channels)
+        username:
+          type: string
+          description: Chat username (for public chats)
+
+    TelegramCallbackQuery:
+      type: object
+      description: Callback query from inline button
+      required:
+        - id
+        - from
+        - chat_instance
+      properties:
+        id:
+          type: string
+        from:
+          $ref: '#/components/schemas/TelegramUser'
+        chat_instance:
+          type: string
+        data:
+          type: string
+          description: Callback data
+
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+        - uptime
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: number
+          format: float
+          description: Seconds since application start
+        version:
+          type: string
+          description: Semver version (optional)
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [healthy, degraded, unhealthy]
+          description: Individual dependency health checks
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Short error category
+        message:
+          type: string
+          description: Detailed error message
+        requestId:
+          type: string
+          format: uuid
+          description: Request correlation ID for debugging
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Telegram-Bot-Api-Secret-Token
+      description: |
+        Optional secret token for webhook verification.
+        Future feature: Validate this token against TELEGRAM_BOT_TOKEN.
+
+tags:
+  - name: Webhooks
+    description: Telegram webhook endpoints
+  - name: Health
+    description: Health check endpoints
