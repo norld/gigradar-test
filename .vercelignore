@@ -10,4 +10,3 @@ api/eslint.config.mjs
 **/*.spec.ts
 coverage
 api/dist
-api/index.js
