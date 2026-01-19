@@ -1,6 +1,8 @@
 api/tests
 api/node_modules
+api/lib
 api/dev-server.ts
+api/entry.ts
 api/vitest.config.ts
 api/vite.config.ts
 api/tsconfig.json

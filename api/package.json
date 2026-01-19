@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vitest --watch",
     "server:dev": "tsx watch src/server.ts",
-    "build": "esbuild index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --external:@vercel/node --external:fastify --external:pino --external:zod",
+    "build": "esbuild index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --format=cjs --external:fastify --external:pino --external:zod",
     "test": "vitest run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest run --coverage",
